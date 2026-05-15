@@ -1,8 +1,10 @@
+import threading
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLineEdit, QPushButton, QLabel, QComboBox, QStatusBar, QTabWidget
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QObject, pyqtSignal
+from PyQt6.QtGui import QStandardItemModel, QStandardItem
 from data.fetcher import fetch_and_store, load_prices, list_stored_tickers
 from data.predefined import DANISH_STOCKS
 from analysis.backtester import generate_signals, run_backtest, run_atr_backtest, load_signal_details
@@ -11,22 +13,9 @@ from gui.widgets.backtest_panel import BacktestPanel
 from gui.widgets.news_window import NewsWindow
 
 
-class FetchWorker(QThread):
-    finished = pyqtSignal(int)
-    error = pyqtSignal(str)
-
-    def __init__(self, ticker, period):
-        super().__init__()
-        self.ticker = ticker
-        self.period = period
-
-    def run(self):
-        try:
-            count = fetch_and_store(self.ticker, self.period)
-            generate_signals(self.ticker)
-            self.finished.emit(count)
-        except Exception as e:
-            self.error.emit(str(e))
+class FetchSignals(QObject):
+    finished = pyqtSignal(str, int)
+    error = pyqtSignal(str, str)
 
 
 class MainWindow(QMainWindow):
@@ -34,6 +23,10 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Stock Analyzer")
         self.setMinimumSize(1200, 800)
+        self._combo_tickers = []
+        self._fetch_signals = FetchSignals()
+        self._fetch_signals.finished.connect(self._on_fetched)
+        self._fetch_signals.error.connect(lambda t, e: self.status_bar.showMessage(f"Fejl: {e}"))
         self._build_ui()
 
     def _build_ui(self):
@@ -94,57 +87,70 @@ class MainWindow(QMainWindow):
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
 
+    def _start_fetch(self, ticker: str, period: str):
+        signals = self._fetch_signals
+
+        def run():
+            try:
+                count = fetch_and_store(ticker, period)
+                generate_signals(ticker)
+                signals.finished.emit(ticker, count)
+            except Exception as e:
+                signals.error.emit(ticker, str(e))
+
+        t = threading.Thread(target=run, daemon=True)
+        t.start()
+
     def _on_fetch(self):
         ticker = self.ticker_input.text().strip().upper()
         if not ticker:
             return
         period = self.period_combo.currentText()
-        self.status_bar.showMessage(f"Henter {ticker}...")
-        self.worker = FetchWorker(ticker, period)
-        self.worker.finished.connect(lambda n: self._on_fetched(ticker, n))
-        self.worker.error.connect(lambda e: self.status_bar.showMessage(f"Fejl: {e}"))
-        self.worker.start()
+        self._start_fetch(ticker, period)
 
     def _refresh_stored_combo(self):
         self.stored_combo.blockSignals(True)
-        self.stored_combo.clear()
-        self.stored_combo.addItem("— Vælg aktie —", userData=None)
 
         stored = {t: (n, span) for t, n, span in list_stored_tickers()}
 
-        # Merge: predefined + manually fetched (not in predefined)
         all_tickers = dict(DANISH_STOCKS)
         for t, (n, _) in stored.items():
             if t not in all_tickers:
                 all_tickers[t] = n
 
+        labels = ["— Vælg aktie —"]
+        self._combo_tickers = [None]
         for ticker, name in sorted(all_tickers.items()):
             if ticker in stored:
                 _, span = stored[ticker]
                 label = f"{ticker}  {name}  [{span}]" if span else f"{ticker}  {name}"
             else:
                 label = f"{ticker}  {name}  ·"
-            self.stored_combo.addItem(label, userData=(ticker, ticker in stored))
+            labels.append(label)
+            self._combo_tickers.append(ticker)
+
+        model = QStandardItemModel(len(labels), 1, self.stored_combo)
+        for i, label in enumerate(labels):
+            model.setItem(i, 0, QStandardItem(label))
+        self.stored_combo.setModel(model)
 
         self.stored_combo.blockSignals(False)
 
     def _on_stored_selected(self, index: int):
-        data = self.stored_combo.itemData(index)
-        if not data:
+        if index < 0 or index >= len(self._combo_tickers):
             return
-        ticker, has_data = data
+        ticker = self._combo_tickers[index]
+        if not ticker:
+            return
         self.ticker_input.setText(ticker)
-        if has_data:
-            df = load_prices(ticker)
+        df = load_prices(ticker)
+        if not df.empty:
             self.price_chart.plot(df, ticker)
             self.tabs.setCurrentIndex(0)
         else:
             period = self.period_combo.currentText()
             self.status_bar.showMessage(f"Henter {ticker}...")
-            self.worker = FetchWorker(ticker, period)
-            self.worker.finished.connect(lambda n: self._on_fetched(ticker, n))
-            self.worker.error.connect(lambda e: self.status_bar.showMessage(f"Fejl: {e}"))
-            self.worker.start()
+            self._start_fetch(ticker, period)
 
     def _on_fetched(self, ticker: str, count: int):
         self.status_bar.showMessage(f"{ticker}: {count} nye rækker gemt.")

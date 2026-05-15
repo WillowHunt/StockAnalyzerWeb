@@ -26,6 +26,9 @@ class CandlestickItem(pg.GraphicsObject):
         p.setRenderHint(QPainter.RenderHint.Antialiasing, False)
         w = 0.4
         for x, open_, close, low, high in _visible_data(self._data, self.getViewBox()):
+            if not (np.isfinite(open_) and np.isfinite(close) and
+                    np.isfinite(low) and np.isfinite(high)):
+                continue
             color = pg.mkColor('#26a69a') if close >= open_ else pg.mkColor('#ef5350')
             wick = QPen(color)
             wick.setWidthF(1.0)
@@ -42,8 +45,10 @@ class CandlestickItem(pg.GraphicsObject):
         if not self._data:
             return QRectF()
         xs = [d[0] for d in self._data]
-        lows = [d[3] for d in self._data]
-        highs = [d[4] for d in self._data]
+        lows = [d[3] for d in self._data if np.isfinite(d[3]) and np.isfinite(d[4])]
+        highs = [d[4] for d in self._data if np.isfinite(d[3]) and np.isfinite(d[4])]
+        if not lows:
+            return QRectF()
         return QRectF(min(xs) - 0.5, min(lows), max(xs) - min(xs) + 1, max(highs) - min(lows))
 
 
@@ -58,6 +63,9 @@ class OHLCItem(pg.GraphicsObject):
         p.setRenderHint(QPainter.RenderHint.Antialiasing, False)
         w = 0.3
         for x, open_, close, low, high in _visible_data(self._data, self.getViewBox()):
+            if not (np.isfinite(open_) and np.isfinite(close) and
+                    np.isfinite(low) and np.isfinite(high)):
+                continue
             color = pg.mkColor('#26a69a') if close >= open_ else pg.mkColor('#ef5350')
             pen = QPen(color)
             pen.setWidthF(1.0)
@@ -71,8 +79,10 @@ class OHLCItem(pg.GraphicsObject):
         if not self._data:
             return QRectF()
         xs = [d[0] for d in self._data]
-        lows = [d[3] for d in self._data]
-        highs = [d[4] for d in self._data]
+        lows = [d[3] for d in self._data if np.isfinite(d[3]) and np.isfinite(d[4])]
+        highs = [d[4] for d in self._data if np.isfinite(d[3]) and np.isfinite(d[4])]
+        if not lows:
+            return QRectF()
         return QRectF(min(xs) - 0.5, min(lows), max(xs) - min(xs) + 1, max(highs) - min(lows))
 
 
@@ -237,6 +247,15 @@ class PriceChart(QWidget):
         self._redraw()
 
     def _redraw(self):
+        try:
+            self._do_redraw()
+        except Exception as e:
+            import traceback
+            with open("/tmp/stockapp_crash.log", "a") as f:
+                f.write(traceback.format_exc())
+            print(f"REDRAW FEJL: {e}")
+
+    def _do_redraw(self):
         if self.df is None or self.df.empty:
             return
         if not self._first_load:
@@ -256,17 +275,20 @@ class PriceChart(QWidget):
         self.selector_plot.clear()
         self.selector_plot.addItem(self.region)
 
-        # Sæt X-range FØR items tilføjes så første paint() kun tegner synlige stave
         n = len(x)
         if self._first_load:
             init_start = max(0, n - 90)
-            self._updating = True
-            self.price_plot.setXRange(init_start, n - 1, padding=0)
-            self._updating = False
+        else:
+            init_start, _ = self._saved_range
+
+        self._updating = True
+        self.price_plot.setXRange(int(init_start), n - 1, padding=0)
+        self.price_plot.enableAutoRange(axis='x', enable=False)
+        self._updating = False
 
         chart = self.chart_type.currentText()
         if chart == "Linje":
-            self.price_plot.plot(x, df["close"].values, pen=pg.mkPen("w", width=1.5))
+            self.price_plot.plot(x, df["close"].values, pen=pg.mkPen("w", width=1.5), connect='finite')
         elif chart == "OHLC":
             ohlc_data = list(zip(x, df["open"].values, df["close"].values,
                                  df["low"].values, df["high"].values))
@@ -276,38 +298,40 @@ class PriceChart(QWidget):
             ha_data = list(zip(x, [h[0] for h in ha], [h[1] for h in ha],
                                [h[2] for h in ha], [h[3] for h in ha]))
             self.price_plot.addItem(CandlestickItem(ha_data))
-        else:  # Candlestick
+        else:
             candle_data = list(zip(x, df["open"].values, df["close"].values,
                                    df["low"].values, df["high"].values))
             self.price_plot.addItem(CandlestickItem(candle_data))
 
+        kw = dict(connect='finite')
         if self.cb_sma20.isChecked() and "sma_20" in df:
-            self.price_plot.plot(x, df["sma_20"].values, pen=pg.mkPen("y", width=1))
+            self.price_plot.plot(x, df["sma_20"].values, pen=pg.mkPen("y", width=1), **kw)
         if self.cb_sma50.isChecked() and "sma_50" in df:
-            self.price_plot.plot(x, df["sma_50"].values, pen=pg.mkPen("c", width=1))
+            self.price_plot.plot(x, df["sma_50"].values, pen=pg.mkPen("c", width=1), **kw)
         if self.cb_sma200.isChecked() and "sma_200" in df:
-            self.price_plot.plot(x, df["sma_200"].values, pen=pg.mkPen("m", width=1))
+            self.price_plot.plot(x, df["sma_200"].values, pen=pg.mkPen("m", width=1), **kw)
         if self.cb_bb.isChecked() and "bb_upper" in df:
-            self.price_plot.plot(x, df["bb_upper"].values, pen=pg.mkPen((100, 100, 255), width=1))
-            self.price_plot.plot(x, df["bb_lower"].values, pen=pg.mkPen((100, 100, 255), width=1))
+            self.price_plot.plot(x, df["bb_upper"].values, pen=pg.mkPen((100, 100, 255), width=1), **kw)
+            self.price_plot.plot(x, df["bb_lower"].values, pen=pg.mkPen((100, 100, 255), width=1), **kw)
 
-        vol = df["volume"].fillna(0).values
+        vol = np.nan_to_num(df["volume"].values, nan=0.0, posinf=0.0, neginf=0.0)
         self.volume_plot.addItem(pg.BarGraphItem(x=x, height=vol, width=0.8, brush="b"))
 
         if "rsi_14" in df:
-            self.rsi_plot.plot(x, df["rsi_14"].values, pen=pg.mkPen("g", width=1.2))
+            self.rsi_plot.plot(x, df["rsi_14"].values, pen=pg.mkPen("g", width=1.2), **kw)
             self.rsi_plot.addLine(y=70, pen=pg.mkPen("r", style=pg.QtCore.Qt.PenStyle.DashLine))
             self.rsi_plot.addLine(y=30, pen=pg.mkPen("g", style=pg.QtCore.Qt.PenStyle.DashLine))
 
         self.stoch_plot.setVisible(self.cb_stoch.isChecked())
         if self.cb_stoch.isChecked() and "stoch_k" in df:
-            self.stoch_plot.plot(x, df["stoch_k"].values, pen=pg.mkPen("y", width=1.2))
-            self.stoch_plot.plot(x, df["stoch_d"].values, pen=pg.mkPen("r", width=1))
+            self.stoch_plot.plot(x, df["stoch_k"].values, pen=pg.mkPen("y", width=1.2), **kw)
+            self.stoch_plot.plot(x, df["stoch_d"].values, pen=pg.mkPen("r", width=1), **kw)
             self.stoch_plot.addLine(y=80, pen=pg.mkPen("r", style=pg.QtCore.Qt.PenStyle.DashLine))
             self.stoch_plot.addLine(y=20, pen=pg.mkPen("g", style=pg.QtCore.Qt.PenStyle.DashLine))
 
-        self.selector_plot.plot(x, df["close"].values, pen=pg.mkPen((150, 150, 150), width=1))
+        self.selector_plot.plot(x, df["close"].values, pen=pg.mkPen((150, 150, 150), width=1), connect='finite')
 
+        self.price_plot.setXRange(int(init_start), n - 1, padding=0)
         self.region.setBounds([0, n - 1])
         if self._first_load:
             self.region.setRegion([max(0, n - 90), n - 1])
