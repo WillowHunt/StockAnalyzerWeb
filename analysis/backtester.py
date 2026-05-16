@@ -189,6 +189,68 @@ def run_backtest(ticker: str, hold_days: int = 20) -> dict:
         session.close()
 
 
+def run_regime_analysis(ticker: str, hold_days: int = 20) -> dict:
+    from data.fetcher import load_prices
+    session = get_session()
+    try:
+        stock = session.query(Stock).filter_by(ticker=ticker).first()
+        if not stock:
+            return {}
+
+        prices    = load_prices(ticker).set_index("date")
+        med_atr   = prices["atr_14"].dropna().median()
+        all_dates = list(prices.index)
+
+        raw_signals = session.query(Signal).filter_by(stock_id=stock.id).all()
+        rows = []
+        for sig in raw_signals:
+            if sig.date not in prices.index:
+                continue
+            future = [d for d in all_dates if d > sig.date]
+            if len(future) < hold_days:
+                continue
+
+            p     = prices.loc[sig.date]
+            entry = p["close"]
+            exit_ = prices.loc[future[hold_days - 1], "close"]
+            pct   = (exit_ - entry) / entry * 100
+            ok    = pct > 0 if sig.signal_type == "BUY" else pct < 0
+
+            sma200 = p.get("sma_200")
+            atr    = p.get("atr_14")
+            regime = "Bull" if (sma200 and not pd.isna(sma200) and entry > sma200) else "Bear"
+            vol    = "Høj"  if (atr    and not pd.isna(atr)    and atr > med_atr)  else "Lav"
+
+            rows.append({
+                "indicator": sig.indicator, "signal_type": sig.signal_type,
+                "pct": pct, "success": ok, "regime": regime, "volatility": vol,
+            })
+
+        if not rows:
+            return {}
+
+        df2 = pd.DataFrame(rows)
+
+        def _summarise(df_grp, group_col):
+            out = []
+            for (ind, stype, ctx), grp in df_grp.groupby(["indicator", "signal_type", group_col]):
+                n = len(grp); s = int(grp["success"].sum())
+                out.append({
+                    "indicator": ind, "signal_type": stype, group_col: ctx,
+                    "total": n, "success": s, "fail": n - s,
+                    "success_rate": round(s / n * 100, 1),
+                    "avg_pct": round(grp["pct"].mean(), 2),
+                })
+            return sorted(out, key=lambda r: (r["signal_type"], r["indicator"], r[group_col]))
+
+        return {
+            "regime":     _summarise(df2, "regime"),
+            "volatility": _summarise(df2, "volatility"),
+        }
+    finally:
+        session.close()
+
+
 def _macd_signals(df: pd.DataFrame, stock_id: int) -> list:
     signals = []
     prev_hist = None

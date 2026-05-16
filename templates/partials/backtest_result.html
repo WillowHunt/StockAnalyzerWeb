@@ -57,4 +57,48 @@
         </table>
     </div>
     {% endif %}
+
+    {% if regime and regime.regime %}
+    <h4 style="margin-top:24px">Markedsregime (pris vs. SMA 200)</h4>
+    <div class="table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr><th>Indikator</th><th>Type</th><th>Regime</th><th>Total</th><th>Hit rate</th><th>Gns. afkast</th></tr>
+            </thead>
+            <tbody>
+                {% for r in regime.regime %}
+                <tr>
+                    <td>{{ r.indicator }}</td>
+                    <td><span class="badge {{ 'badge-buy' if r.signal_type == 'BUY' else 'badge-sell' }}">{{ r.signal_type }}</span></td>
+                    <td class="{{ 'pos' if r.regime == 'Bull' else 'neg' }}">{{ r.regime }}</td>
+                    <td>{{ r.total }}</td>
+                    <td class="{{ 'pos' if r.success_rate >= 50 else 'neg' }}">{{ r.success_rate }}%</td>
+                    <td class="{{ 'pos' if r.avg_pct >= 0 else 'neg' }}">{{ "%.2f%%"|format(r.avg_pct) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <h4 style="margin-top:24px">Volatilitet (ATR vs. median)</h4>
+    <div class="table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr><th>Indikator</th><th>Type</th><th>Volatilitet</th><th>Total</th><th>Hit rate</th><th>Gns. afkast</th></tr>
+            </thead>
+            <tbody>
+                {% for r in regime.volatility %}
+                <tr>
+                    <td>{{ r.indicator }}</td>
+                    <td><span class="badge {{ 'badge-buy' if r.signal_type == 'BUY' else 'badge-sell' }}">{{ r.signal_type }}</span></td>
+                    <td>{{ r.volatility }}</td>
+                    <td>{{ r.total }}</td>
+                    <td class="{{ 'pos' if r.success_rate >= 50 else 'neg' }}">{{ r.success_rate }}%</td>
+                    <td class="{{ 'pos' if r.avg_pct >= 0 else 'neg' }}">{{ "%.2f%%"|format(r.avg_pct) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
 </div>
