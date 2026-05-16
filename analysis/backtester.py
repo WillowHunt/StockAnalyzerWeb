@@ -21,6 +21,7 @@ def generate_signals(ticker: str) -> int:
         signals += _macd_signals(df, stock.id)
         signals += _rsi_signals(df, stock.id)
         signals += _sma_cross_signals(df, stock.id)
+        signals += _ema_cross_signals(df, stock.id)
         signals += _stoch_signals(df, stock.id)
 
         session.bulk_save_objects(signals)
@@ -234,6 +235,24 @@ def _stoch_signals(df: pd.DataFrame, stock_id: int) -> list:
                 elif pk > pd_ and k <= d and k > 80:
                     signals.append(Signal(stock_id=stock_id, date=row["date"], signal_type="SELL",
                                           indicator="STOCH", price_at_signal=row["close"]))
+        prev_row = row
+    return signals
+
+
+def _ema_cross_signals(df: pd.DataFrame, stock_id: int) -> list:
+    signals = []
+    prev_row = None
+    for _, row in df.iterrows():
+        if prev_row is not None:
+            e12, e26 = row.get("ema_12"), row.get("ema_26")
+            pe12, pe26 = prev_row.get("ema_12"), prev_row.get("ema_26")
+            if None not in (e12, e26, pe12, pe26) and not any(pd.isna(x) for x in [e12, e26, pe12, pe26]):
+                if pe12 < pe26 and e12 >= e26:
+                    signals.append(Signal(stock_id=stock_id, date=row["date"], signal_type="BUY",
+                                          indicator="EMA_CROSS", price_at_signal=row["close"]))
+                elif pe12 > pe26 and e12 <= e26:
+                    signals.append(Signal(stock_id=stock_id, date=row["date"], signal_type="SELL",
+                                          indicator="EMA_CROSS", price_at_signal=row["close"]))
         prev_row = row
     return signals
 
