@@ -13,6 +13,7 @@ const COMPARE_COLORS = ['#f9e2af', '#a6e3a1', '#cba6f7', '#89dceb', '#fab387'];
 
 let visibleIndicators = {
     sma20: true, sma50: true, sma200: true,
+    ema12: false, ema26: false,
     bb: true, volume: true, signals: true,
     rsi: true, macd: true, stoch: true,
 };
@@ -304,6 +305,8 @@ function buildPriceTraces(prices, signals, dates, xRange) {
         { key: 'sma_20',  indKey: 'sma20',  color: '#ff9800', label: 'SMA 20',  width: 1   },
         { key: 'sma_50',  indKey: 'sma50',  color: '#00e5ff', label: 'SMA 50',  width: 1   },
         { key: 'sma_200', indKey: 'sma200', color: '#e040fb', label: 'SMA 200', width: 1.5 },
+        { key: 'ema_12',  indKey: 'ema12',  color: '#a6e3a1', label: 'EMA 12',  width: 1   },
+        { key: 'ema_26',  indKey: 'ema26',  color: '#fab387', label: 'EMA 26',  width: 1   },
     ]) {
         if (!visibleIndicators[indKey]) continue;
         traces.push({
