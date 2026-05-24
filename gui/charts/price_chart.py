@@ -1,9 +1,15 @@
 import pyqtgraph as pg
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QCheckBox, QHBoxLayout, QComboBox, QLabel
-from PyQt6.QtGui import QPainter, QBrush, QPen
+from PyQt6.QtGui import QPainter, QBrush, QPen, QColor
 from PyQt6.QtCore import QPointF, QRectF
 import pandas as pd
 import numpy as np
+from data.fetcher import fetch_market_regime
+
+_INDEX_OPTIONS = {
+    "S&P 500": "^GSPC",
+    "OMXC20":  "^OMXC20",
+}
 
 
 def _visible_data(data, vb):
@@ -146,10 +152,20 @@ class PriceChart(QWidget):
         self.cb_sma200 = QCheckBox("SMA 200")
         self.cb_bb = QCheckBox("Bollinger Bands")
         self.cb_stoch = QCheckBox("Stochastic")
-        for cb in (self.cb_sma20, self.cb_sma50, self.cb_sma200, self.cb_bb, self.cb_stoch):
+        self.cb_regime = QCheckBox("Bull/Bear")
+        for cb in (self.cb_sma20, self.cb_sma50, self.cb_sma200, self.cb_bb, self.cb_stoch, self.cb_regime):
             cb.setChecked(True)
             cb.stateChanged.connect(self._redraw)
             toggle_row.addWidget(cb)
+
+        self.regime_index = QComboBox()
+        self.regime_index.addItems(list(_INDEX_OPTIONS.keys()))
+        self.regime_index.currentIndexChanged.connect(self._redraw)
+        toggle_row.addWidget(self.regime_index)
+        self.cb_regime.stateChanged.connect(
+            lambda state: self.regime_index.setVisible(bool(state))
+        )
+
         toggle_row.addStretch()
         layout.addLayout(toggle_row)
 
@@ -255,6 +271,46 @@ class PriceChart(QWidget):
                 f.write(traceback.format_exc())
             print(f"REDRAW FEJL: {e}")
 
+    def _draw_regime_zones(self, x, dates, sp500_regime: dict):
+        bull_brush = pg.mkBrush(QColor(0, 180, 0, 35))
+        bear_brush = pg.mkBrush(QColor(220, 0, 0, 35))
+        no_pen = pg.mkPen(None)
+
+        in_region = False
+        start_x = 0
+        current_bull = None
+
+        def _add_zone(x0, x1, is_bull):
+            item = pg.LinearRegionItem(
+                [x0 - 0.5, x1 + 0.5],
+                brush=bull_brush if is_bull else bear_brush,
+                pen=no_pen,
+                movable=False,
+            )
+            item.setZValue(-10)
+            self.price_plot.addItem(item)
+
+        for i, xi in enumerate(x):
+            date = dates[i]
+            date_key = date if not hasattr(date, "date") else date.date()
+            if date_key not in sp500_regime:
+                if in_region:
+                    _add_zone(start_x, x[i - 1], current_bull)
+                    in_region = False
+                continue
+            is_bull = sp500_regime[date_key]
+            if not in_region:
+                in_region = True
+                start_x = xi
+                current_bull = is_bull
+            elif is_bull != current_bull:
+                _add_zone(start_x, x[i - 1], current_bull)
+                start_x = xi
+                current_bull = is_bull
+
+        if in_region:
+            _add_zone(start_x, x[-1], current_bull)
+
     def _do_redraw(self):
         if self.df is None or self.df.empty:
             return
@@ -285,6 +341,14 @@ class PriceChart(QWidget):
         self.price_plot.setXRange(int(init_start), n - 1, padding=0)
         self.price_plot.enableAutoRange(axis='x', enable=False)
         self._updating = False
+
+        if self.cb_regime.isChecked():
+            index_ticker = _INDEX_OPTIONS[self.regime_index.currentText()]
+            start = df["date"].min()
+            end = df["date"].max()
+            regime = fetch_market_regime(index_ticker, start, end)
+            if regime:
+                self._draw_regime_zones(x, df["date"].tolist(), regime)
 
         chart = self.chart_type.currentText()
         if chart == "Linje":

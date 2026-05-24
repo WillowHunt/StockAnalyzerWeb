@@ -1,8 +1,59 @@
+import datetime
 import yfinance as yf
 import pandas as pd
 from database.connection import get_session
 from database.models import Stock, Price
 from analysis.indicators import add_indicators
+
+_regime_cache: dict = {}
+
+
+def fetch_market_regime(index_ticker: str, start_date, end_date) -> dict:
+    """Hent et indeks og beregn ±20% bull/bear regime. Returnerer {date: is_bull}."""
+    lookback_start = start_date - datetime.timedelta(days=365)
+    cache_key = (index_ticker, lookback_start, end_date)
+    if cache_key in _regime_cache:
+        return _regime_cache[cache_key]
+
+    try:
+        df = yf.download(
+            index_ticker,
+            start=lookback_start.strftime("%Y-%m-%d"),
+            end=(end_date + datetime.timedelta(days=1)).strftime("%Y-%m-%d"),
+            auto_adjust=True,
+            progress=False,
+        )
+        if df.empty:
+            return {}
+        df = df.reset_index()
+        df.columns = [c[0] if isinstance(c, tuple) else c for c in df.columns]
+        closes = df["Close"].values
+        dates = [d.date() if hasattr(d, "date") else d for d in df["Date"]]
+
+        is_bull = [True] * len(closes)
+        current_bull = True
+        extremum = float(closes[0])
+        for i in range(1, len(closes)):
+            c = float(closes[i])
+            if current_bull:
+                if c > extremum:
+                    extremum = c
+                elif c <= extremum * 0.80:
+                    current_bull = False
+                    extremum = c
+            else:
+                if c < extremum:
+                    extremum = c
+                elif c >= extremum * 1.20:
+                    current_bull = True
+                    extremum = c
+            is_bull[i] = current_bull
+
+        result = dict(zip(dates, is_bull))
+        _regime_cache[cache_key] = result
+        return result
+    except Exception:
+        return {}
 
 
 def fetch_and_store(ticker: str, period: str = "1y", interval: str = "1d") -> int:
