@@ -16,7 +16,42 @@ let visibleIndicators = {
     ema12: false, ema26: false,
     bb: true, volume: true, signals: true,
     rsi: true, macd: true, stoch: true,
+    regime: true,
 };
+
+let currentRegimeData  = [];
+let currentRegimeIndex = '^GSPC';
+
+async function loadRegimeData(prices) {
+    if (!prices.length || !visibleIndicators.regime) { currentRegimeData = []; return; }
+    const start = prices[0].date;
+    const end   = prices[prices.length - 1].date;
+    try {
+        const res      = await fetch(`/api/regime?index=${encodeURIComponent(currentRegimeIndex)}&start=${start}&end=${end}`);
+        currentRegimeData = res.ok ? await res.json() : [];
+    } catch { currentRegimeData = []; }
+}
+
+async function setRegimeIndex(index, btn) {
+    currentRegimeIndex = index;
+    document.querySelectorAll('.regime-idx-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (visibleIndicators.regime && currentPrices.length) {
+        await loadRegimeData(currentPrices);
+        const saved = document.getElementById('price-chart')?._fullLayout?.xaxis?.range?.slice() ?? null;
+        renderCharts(currentPrices, currentSignals, saved);
+    }
+}
+
+function buildRegimeShapes() {
+    if (!visibleIndicators.regime || !currentRegimeData.length) return [];
+    return currentRegimeData.map(seg => ({
+        type: 'rect', xref: 'x', yref: 'paper',
+        x0: seg.start, x1: seg.end, y0: 0, y1: 1,
+        fillcolor: seg.is_bull ? 'rgba(0,180,0,0.07)' : 'rgba(220,0,0,0.07)',
+        line: { width: 0 }, layer: 'below',
+    }));
+}
 
 function setChartType(btn, type) {
     document.querySelectorAll('.chart-type-btn').forEach(b => b.classList.remove('active'));
@@ -47,6 +82,7 @@ async function loadChart(ticker, limit) {
     const signals = (signalsRes && signalsRes.ok) ? await signalsRes.json() : [];
     currentPrices  = prices;
     currentSignals = signals;
+    await loadRegimeData(prices);
     renderCharts(prices, signals);
 }
 
@@ -157,6 +193,7 @@ function buildPriceLayout(xRange, yRange) {
         } : {}),
         legend: { bgcolor: 'rgba(0,0,0,0)', bordercolor: GRID, x: 0, y: 1, font: { size: 10 } },
         showlegend: true,
+        shapes: buildRegimeShapes(),
     };
 }
 
@@ -537,6 +574,19 @@ function toggleIndicator(key) {
     document.querySelectorAll(`.ind-btn[data-indicator="${key}"]`).forEach(btn =>
         btn.classList.toggle('active', visibleIndicators[key])
     );
+
+    if (key === 'regime') {
+        const picker = document.getElementById('regime-index-picker');
+        if (picker) picker.style.display = visibleIndicators.regime ? '' : 'none';
+        if (visibleIndicators.regime && !currentRegimeData.length && currentPrices.length) {
+            loadRegimeData(currentPrices).then(() => {
+                const saved = document.getElementById('price-chart')?._fullLayout?.xaxis?.range?.slice() ?? null;
+                renderCharts(currentPrices, currentSignals, saved);
+            });
+            return;
+        }
+    }
+
     if (currentPrices.length) {
         const saved = document.getElementById('price-chart')?._fullLayout?.xaxis?.range?.slice() ?? null;
         renderCharts(currentPrices, currentSignals, saved);
@@ -548,6 +598,8 @@ function syncIndicatorButtons() {
         const key = btn.dataset.indicator;
         btn.classList.toggle('active', visibleIndicators[key] !== false);
     });
+    const picker = document.getElementById('regime-index-picker');
+    if (picker) picker.style.display = visibleIndicators.regime ? '' : 'none';
 }
 
 // ── HTMX afterSwap — start chart after stock view is injected ────────────────

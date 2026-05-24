@@ -55,6 +55,14 @@
                 <button class="ind-btn active" data-indicator="macd"  onclick="toggleIndicator('macd')">MACD</button>
                 <button class="ind-btn active" data-indicator="stoch" onclick="toggleIndicator('stoch')">Stoch</button>
             </div>
+            <div class="indicator-sep"></div>
+            <div class="indicator-group">
+                <button class="ind-btn active" data-indicator="regime" onclick="toggleIndicator('regime')">Bull/Bear</button>
+                <span id="regime-index-picker" class="regime-index-picker">
+                    <button class="regime-idx-btn active" onclick="setRegimeIndex('^GSPC', this)">S&amp;P 500</button>
+                    <button class="regime-idx-btn" onclick="setRegimeIndex('^OMXC20', this)">OMXC20</button>
+                </span>
+            </div>
         </div>
         <div id="price-chart"></div>
         <div id="rsi-chart"></div>

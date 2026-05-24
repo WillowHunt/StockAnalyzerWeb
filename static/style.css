@@ -152,6 +152,15 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Sego
 .ind-btn:hover { border-color: var(--text); color: var(--text); }
 .ind-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
 
+.regime-index-picker { display: flex; gap: 3px; margin-left: 2px; }
+.regime-idx-btn {
+    background: none; border: 1px solid var(--border); color: var(--muted);
+    border-radius: 4px; padding: 2px 7px; font-size: 10px; cursor: pointer;
+    transition: all 0.12s;
+}
+.regime-idx-btn:hover { border-color: var(--text); color: var(--text); }
+.regime-idx-btn.active { background: rgba(38,166,154,0.12); border-color: #26a69a; color: #26a69a; }
+
 /* Compare */
 .compare-section { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-wrap: wrap; }
 #compare-chips { display: flex; gap: 4px; flex-wrap: wrap; }
