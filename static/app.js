@@ -41,6 +41,7 @@ async function setRegimeIndex(index, btn) {
         await loadRegimeData(currentPrices);
         const saved = document.getElementById('price-chart')?._fullLayout?.xaxis?.range?.slice() ?? null;
         renderCharts(currentPrices, currentSignals, saved);
+        renderTechnicalAnalysis();
     }
 }
 
@@ -85,6 +86,7 @@ async function loadChart(ticker, limit) {
     currentSignals = signals;
     await loadRegimeData(prices);
     renderCharts(prices, signals);
+    renderTechnicalAnalysis();
 }
 
 function reloadChart(ticker, limit) {
@@ -583,9 +585,11 @@ function toggleIndicator(key) {
             loadRegimeData(currentPrices).then(() => {
                 const saved = document.getElementById('price-chart')?._fullLayout?.xaxis?.range?.slice() ?? null;
                 renderCharts(currentPrices, currentSignals, saved);
+                renderTechnicalAnalysis();
             });
             return;
         }
+        renderTechnicalAnalysis();
     }
 
     if (currentPrices.length) {
@@ -601,6 +605,97 @@ function syncIndicatorButtons() {
     });
     const picker = document.getElementById('regime-index-picker');
     if (picker) picker.style.display = visibleIndicators.regime ? '' : 'none';
+}
+
+// ── Regime-aware technical analysis ──────────────────────────────────────────
+
+function computeTechnicalAnalysis() {
+    if (!currentPrices.length || !currentRegimeData.length) return null;
+
+    const last   = currentRegimeData[currentRegimeData.length - 1];
+    const regime = last.is_bull ? 'bull' : 'bear';
+    const p      = currentPrices[currentPrices.length - 1];
+    const signals = [];
+
+    if (regime === 'bull') {
+        // Trend-following: virker bedst i stigende markeder
+        if (p.macd_hist != null) {
+            signals.push({ name: 'MACD', verdict: p.macd_hist > 0 ? 'BUY' : 'SELL' });
+        }
+        if (p.ema_12 != null && p.ema_26 != null) {
+            signals.push({ name: 'EMA-kryds', verdict: p.ema_12 > p.ema_26 ? 'BUY' : 'SELL' });
+        }
+        if (p.close != null && p.sma_50 != null && p.sma_200 != null) {
+            let verdict;
+            if (p.close > p.sma_50 && p.sma_50 > p.sma_200)  verdict = 'BUY';
+            else if (p.close < p.sma_200)                      verdict = 'SELL';
+            else                                               verdict = 'HOLD';
+            signals.push({ name: 'SMA-trend', verdict });
+        }
+    } else {
+        // Mean-reversion/defensiv: virker bedst i faldende markeder
+        if (p.rsi_14 != null) {
+            let verdict;
+            if (p.rsi_14 < 35)      verdict = 'BUY';
+            else if (p.rsi_14 > 65) verdict = 'SELL';
+            else                    verdict = 'HOLD';
+            signals.push({ name: 'RSI', verdict });
+        }
+        if (p.close != null && p.bb_lower != null && p.bb_upper != null) {
+            let verdict;
+            if (p.close <= p.bb_lower)      verdict = 'BUY';
+            else if (p.close >= p.bb_upper) verdict = 'SELL';
+            else                            verdict = 'HOLD';
+            signals.push({ name: 'Bollinger', verdict });
+        }
+        if (p.stoch_k != null) {
+            let verdict;
+            if (p.stoch_k < 25)      verdict = 'BUY';
+            else if (p.stoch_k > 75) verdict = 'SELL';
+            else                     verdict = 'HOLD';
+            signals.push({ name: 'Stokastisk', verdict });
+        }
+    }
+
+    if (!signals.length) return null;
+
+    const buyN  = signals.filter(s => s.verdict === 'BUY').length;
+    const sellN = signals.filter(s => s.verdict === 'SELL').length;
+    let verdict;
+    if (buyN > sellN && buyN > signals.length - buyN - sellN)       verdict = 'BUY';
+    else if (sellN > buyN && sellN > signals.length - buyN - sellN) verdict = 'SELL';
+    else                                                             verdict = 'HOLD';
+
+    return { regime, verdict, signals };
+}
+
+function renderTechnicalAnalysis() {
+    const box = document.getElementById('technical-box');
+    if (!box) return;
+    if (!currentPrices.length) { box.innerHTML = ''; return; }
+
+    const result = computeTechnicalAnalysis();
+    if (!result) { box.innerHTML = '<span class="analyst-loading">Ingen regime-data</span>'; return; }
+
+    const { regime, verdict, signals } = result;
+    const vColor   = { BUY: '#26a69a', HOLD: '#ffa726', SELL: '#ef5350' }[verdict];
+    const vLabel   = { BUY: 'KØB', HOLD: 'HOLD', SELL: 'SÆLG' }[verdict];
+    const rColor   = regime === 'bull' ? '#26a69a' : '#ef5350';
+    const rLabel   = regime === 'bull' ? 'Bull' : 'Bear';
+
+    const sigsHtml = signals.map(s => {
+        const c = { BUY: '#26a69a', HOLD: '#ffa726', SELL: '#ef5350' }[s.verdict];
+        const l = { BUY: 'Køb', HOLD: 'Hold', SELL: 'Sælg' }[s.verdict];
+        return `<span class="tech-sig" style="color:${c}">${s.name}: ${l}</span>`;
+    }).join('');
+
+    box.innerHTML = `
+        <div class="tech-top">
+            <span class="tech-regime" style="color:${rColor}">${rLabel}</span>
+            <span class="tech-label">marked</span>
+            <span class="tech-verdict" style="color:${vColor}">${vLabel}</span>
+        </div>
+        <div class="tech-signals">${sigsHtml}</div>`;
 }
 
 // ── Analyst recommendations ───────────────────────────────────────────────────

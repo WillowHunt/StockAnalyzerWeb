@@ -36,7 +36,13 @@
       "Bash(echo \"PID: $!\")",
       "Bash(echo \"started PID $!\")",
       "Bash(cp *)",
-      "Bash(uvicorn main:app *)"
+      "Bash(uvicorn main:app *)",
+      "Bash(pkill -f \"uvicorn main:app\")",
+      "Bash(curl -s http://127.0.0.1:8765/)",
+      "Bash(curl -s http://127.0.0.1:8765/partials/stock/NOVO-B.CO)",
+      "Bash(curl -s \"http://127.0.0.1:8765/partials/stock/NOVO-B.CO\")",
+      "Bash(curl -s \"http://127.0.0.1:8765/api/stocks\")",
+      "Bash(curl -s \"http://127.0.0.1:8765/view/AAPL\")"
     ]
   }
 }

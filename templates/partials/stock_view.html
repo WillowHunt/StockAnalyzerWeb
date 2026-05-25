@@ -1,7 +1,11 @@
 <div class="stock-view">
     <div class="stock-header">
         <h2 id="stock-title">{{ ticker }}</h2>
-        <div id="analyst-box" class="analyst-box"></div>
+        <div class="header-analytics">
+            <div id="analyst-box" class="analyst-box"></div>
+            <div class="header-analytics-sep"></div>
+            <div id="technical-box" class="technical-box"></div>
+        </div>
         <div class="header-actions">
 <button class="btn-primary"
                     hx-post="/api/stocks/{{ ticker }}/fetch"

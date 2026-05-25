@@ -92,6 +92,9 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Sego
 .stock-header h2 { font-size: 16px; font-weight: 700; }
 .header-actions { display: flex; align-items: center; gap: 8px; }
 
+.header-analytics { display: flex; align-items: stretch; gap: 0; }
+.header-analytics-sep { width: 1px; background: var(--border); margin: 0 14px; align-self: stretch; }
+
 .analyst-box { display: flex; flex-direction: column; gap: 3px; min-width: 160px; }
 .analyst-loading { font-size: 11px; color: var(--muted); }
 .analyst-consensus { font-size: 12px; font-weight: 700; letter-spacing: 0.3px; }
@@ -108,6 +111,14 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Sego
 .ac-hold  { color: #ffa726; }
 .ac-sell  { color: #ef5350; }
 .ac-total { color: var(--muted); margin-left: auto; }
+
+.technical-box { display: flex; flex-direction: column; gap: 3px; min-width: 150px; }
+.tech-top { display: flex; align-items: baseline; gap: 8px; }
+.tech-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.tech-regime { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.tech-verdict { font-size: 12px; font-weight: 700; letter-spacing: 0.3px; }
+.tech-signals { display: flex; flex-wrap: wrap; gap: 3px 10px; }
+.tech-sig { font-size: 10px; color: var(--muted); }
 
 /* Buttons */
 .btn-primary {
