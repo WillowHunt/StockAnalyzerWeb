@@ -5,6 +5,7 @@ from fastapi.templating import Jinja2Templates
 from data.fetcher import list_stored_tickers
 from analysis.backtester import load_signal_details, run_backtest, run_atr_backtest, run_regime_analysis
 from data.news import load_from_db
+from config import STATIC_VERSION
 
 templates = Jinja2Templates(directory="templates")
 router = APIRouter(tags=["web"])
@@ -13,7 +14,7 @@ router = APIRouter(tags=["web"])
 @router.get("/", response_class=HTMLResponse)
 def index(request: Request):
     stocks = list_stored_tickers()
-    return templates.TemplateResponse(request, "index.html", {"stocks": stocks})
+    return templates.TemplateResponse(request, "index.html", {"stocks": stocks, "v": STATIC_VERSION})
 
 
 @router.get("/view/{ticker}", response_class=HTMLResponse)

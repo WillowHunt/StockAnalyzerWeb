@@ -789,6 +789,19 @@ function reloadBacktest(ticker, holdDays) {
 
 // ── Actions ───────────────────────────────────────────────────────────────────
 
+async function fetchStockData(ticker) {
+    const period = document.getElementById('fetch-period-select')?.value || '5y';
+    try {
+        const res = await fetch(`/api/stocks/${ticker}/fetch?period=${period}`, { method: 'POST' });
+        const data = await res.json();
+        showToast(`Hentet ${data.new_rows} nye rækker for ${ticker}`);
+        const limit = parseInt(document.getElementById('chart-trigger')?.dataset.limit) || 0;
+        loadChart(ticker, limit);
+    } catch {
+        showToast('Fejl ved datahentning', true);
+    }
+}
+
 function handleFetch(event, ticker) {
     if (event.detail.successful) {
         const data = JSON.parse(event.detail.xhr.responseText);

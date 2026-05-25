@@ -6,7 +6,7 @@
     <title>Stock Analyzer</title>
     <script src="https://unpkg.com/htmx.org@1.9.12/dist/htmx.min.js"></script>
     <script src="https://cdn.plot.ly/plotly-2.32.0.min.js" charset="utf-8"></script>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v={{ v }}">
 </head>
 <body>
     <header class="topbar">
@@ -74,6 +74,6 @@
     <div id="toast" class="toast"></div>
     <div id="spinner" class="htmx-indicator spinner"></div>
 
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js?v={{ v }}"></script>
 </body>
 </html>

@@ -1,4 +1,5 @@
 import os
+import time
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -12,6 +13,7 @@ DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY", "")
+STATIC_VERSION = str(int(time.time()))
 
 DEFAULT_TICKER = "AAPL"
 DEFAULT_PERIOD = "1y"

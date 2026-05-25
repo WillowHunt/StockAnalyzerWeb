@@ -7,10 +7,14 @@
             <div id="technical-box" class="technical-box"></div>
         </div>
         <div class="header-actions">
-<button class="btn-primary"
-                    hx-post="/api/stocks/{{ ticker }}/fetch"
-                    hx-swap="none"
-                    hx-on::after-request="handleFetch(event, '{{ ticker }}')">
+            <select id="fetch-period-select" class="period-select" title="Historik-periode">
+                <option value="1y">1 år</option>
+                <option value="2y">2 år</option>
+                <option value="5y" selected>5 år</option>
+                <option value="10y">10 år</option>
+                <option value="max">Max</option>
+            </select>
+            <button class="btn-primary" onclick="fetchStockData('{{ ticker }}')">
                 Opdater data
             </button>
             <button class="btn-secondary"
