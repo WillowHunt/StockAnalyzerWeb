@@ -46,9 +46,10 @@ def run_atr_backtest(ticker: str, atr_mult: float = 2.0, max_days: int = 60) -> 
         details = []
 
         for sig in buy_signals:
-            if sig.date not in prices.index:
+            idx = prices.index.searchsorted(sig.date, side="left")
+            if idx >= len(prices.index):
                 continue
-            future_dates = [d for d in prices.index if d >= sig.date]
+            future_dates = prices.index[idx:]
             if len(future_dates) < 2:
                 continue
 
@@ -145,26 +146,29 @@ def run_backtest(ticker: str, hold_days: int = 20) -> dict:
             return {}
 
         from data.fetcher import load_prices
-        prices = load_prices(ticker).set_index("date")
+        prices      = load_prices(ticker).set_index("date")
+        price_index = prices.index
+        closes      = prices["close"].values
 
         raw_signals = session.query(Signal).filter_by(stock_id=stock.id).all()
         results = []
         for sig in raw_signals:
-            if sig.date not in prices.index:
+            idx = price_index.searchsorted(sig.date, side="right")
+            if idx + hold_days - 1 >= len(price_index):
                 continue
-            future_dates = [d for d in prices.index if d > sig.date]
-            if len(future_dates) < hold_days:
+            outcome_idx  = idx + hold_days - 1
+            outcome_date = price_index[outcome_idx]
+            entry        = prices.at[sig.date, "close"] if sig.date in price_index else None
+            if entry is None:
                 continue
-            outcome_date = future_dates[hold_days - 1]
-            entry = prices.loc[sig.date, "close"]
-            exit_ = prices.loc[outcome_date, "close"]
-            pct = ((exit_ - entry) / entry) * 100
+            exit_      = closes[outcome_idx]
+            pct        = (exit_ - entry) / entry * 100
             is_success = pct > 0 if sig.signal_type == "BUY" else pct < 0
 
-            sig.outcome_date = outcome_date
-            sig.outcome_price = exit_
-            sig.outcome_pct = round(pct, 4)
-            sig.is_success = is_success
+            sig.outcome_date  = outcome_date
+            sig.outcome_price = float(exit_)
+            sig.outcome_pct   = round(pct, 4)
+            sig.is_success    = is_success
             results.append({"type": sig.signal_type, "indicator": sig.indicator, "pct": pct, "success": is_success})
 
         session.commit()
@@ -175,14 +179,14 @@ def run_backtest(ticker: str, hold_days: int = 20) -> dict:
         df = pd.DataFrame(results)
         summary = {}
         for (stype, ind), group in df.groupby(["type", "indicator"]):
-            total = len(group)
+            total   = len(group)
             success = group["success"].sum()
             summary[f"{stype}_{ind}"] = {
-                "total": total,
-                "success": int(success),
-                "fail": total - int(success),
+                "total":        total,
+                "success":      int(success),
+                "fail":         total - int(success),
                 "success_rate": round(success / total * 100, 1),
-                "avg_pct": round(group["pct"].mean(), 2),
+                "avg_pct":      round(group["pct"].mean(), 2),
             }
         return summary
     finally:
@@ -197,22 +201,22 @@ def run_regime_analysis(ticker: str, hold_days: int = 20) -> dict:
         if not stock:
             return {}
 
-        prices    = load_prices(ticker).set_index("date")
-        med_atr   = prices["atr_14"].dropna().median()
-        all_dates = list(prices.index)
+        prices  = load_prices(ticker).set_index("date")
+        med_atr = prices["atr_14"].dropna().median()
+        all_idx = prices.index
 
         raw_signals = session.query(Signal).filter_by(stock_id=stock.id).all()
         rows = []
         for sig in raw_signals:
-            if sig.date not in prices.index:
-                continue
-            future = [d for d in all_dates if d > sig.date]
-            if len(future) < hold_days:
+            idx = all_idx.searchsorted(sig.date, side="right")
+            if idx + hold_days - 1 >= len(all_idx):
                 continue
 
-            p     = prices.loc[sig.date]
+            p     = prices.loc[sig.date] if sig.date in prices.index else None
+            if p is None:
+                continue
             entry = p["close"]
-            exit_ = prices.loc[future[hold_days - 1], "close"]
+            exit_ = prices.iloc[idx + hold_days - 1]["close"]
             pct   = (exit_ - entry) / entry * 100
             ok    = pct > 0 if sig.signal_type == "BUY" else pct < 0
 

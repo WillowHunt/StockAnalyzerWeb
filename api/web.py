@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -42,16 +43,21 @@ def news_partial(request: Request, ticker: str):
 
 @router.get("/partials/backtest/{ticker}", response_class=HTMLResponse)
 def backtest_partial(request: Request, ticker: str, hold_days: int = 20):
-    summary        = run_backtest(ticker.upper(), hold_days=hold_days)
-    atr_summary, _ = run_atr_backtest(ticker.upper())
-    regime         = run_regime_analysis(ticker.upper(), hold_days=hold_days)
+    t = ticker.upper()
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        f_bt     = pool.submit(run_backtest,      t, hold_days=hold_days)
+        f_atr    = pool.submit(run_atr_backtest,  t)
+        f_regime = pool.submit(run_regime_analysis, t, hold_days=hold_days)
+        summary           = f_bt.result()
+        atr_summary, _    = f_atr.result()
+        regime            = f_regime.result()
     return templates.TemplateResponse(
         request, "partials/backtest_result.html",
         {
-            "ticker": ticker.upper(),
-            "summary": summary,
+            "ticker":      t,
+            "summary":     summary,
             "atr_summary": atr_summary,
-            "regime": regime,
-            "hold_days": hold_days,
+            "regime":      regime,
+            "hold_days":   hold_days,
         },
     )
