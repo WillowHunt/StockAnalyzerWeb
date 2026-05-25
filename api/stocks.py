@@ -9,7 +9,7 @@ router = APIRouter(prefix="/api/stocks", tags=["stocks"])
 @router.get("")
 def get_stocks():
     rows = list_stored_tickers()
-    return [{"ticker": t, "name": n, "span": s} for t, n, s in rows]
+    return [{"ticker": t, "name": n, "span": s} for t, n, s, *_ in rows]
 
 
 @router.post("/{ticker}/fetch")

@@ -67,10 +67,16 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Sego
 }
 .stock-item:hover { background: var(--surface); }
 .stock-item.active { background: var(--accent-dim); border-left: 2px solid var(--accent); }
-.stock-item-inner { display: flex; flex-direction: column; min-width: 0; }
+.stock-item-inner { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .stock-ticker { font-size: 12px; font-weight: 600; color: var(--text); }
-.stock-name { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+.stock-name { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+.stock-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; }
 .stock-span { font-size: 10px; color: var(--muted); white-space: nowrap; }
+.sig-badges { display: flex; flex-direction: column; gap: 2px; align-items: flex-end; }
+.sig-badge { font-size: 9px; font-weight: 700; padding: 1px 4px; border-radius: 3px; white-space: nowrap; letter-spacing: 0.02em; }
+.sig-buy  { color: #26a69a; background: rgba(38,166,154,0.15); }
+.sig-hold { color: #ffa726; background: rgba(255,167,38,0.15); }
+.sig-sell { color: #ef5350; background: rgba(239,83,80,0.15); }
 .sidebar-empty { padding: 20px 14px; font-size: 12px; color: var(--muted); line-height: 1.6; }
 
 /* Main content */

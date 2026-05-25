@@ -21,7 +21,8 @@
                 <button class="btn-icon" title="Tilføj aktie" onclick="showFetchDialog()">+</button>
             </div>
             <div id="stock-list">
-                {% for ticker, name, span in stocks %}
+                {% set sig_cls = {"KØB": "buy", "HOLD": "hold", "SÆLG": "sell"} %}
+                {% for ticker, name, span, long_sig, short_sig in stocks %}
                 <div class="stock-item"
                      hx-get="/view/{{ ticker }}"
                      hx-target="#main"
@@ -34,7 +35,15 @@
                         <span class="stock-ticker">{{ ticker }}</span>
                         <span class="stock-name">{{ name }}</span>
                     </div>
-                    {% if span %}<span class="stock-span">{{ span }}</span>{% endif %}
+                    <div class="stock-meta">
+                        {% if span %}<span class="stock-span">{{ span }}</span>{% endif %}
+                        {% if long_sig or short_sig %}
+                        <div class="sig-badges">
+                            {% if long_sig %}<span class="sig-badge sig-{{ sig_cls[long_sig] }}" title="Langsigtet (SMA50/200)">L:{{ long_sig }}</span>{% endif %}
+                            {% if short_sig %}<span class="sig-badge sig-{{ sig_cls[short_sig] }}" title="Kortsigtet (MACD)">K:{{ short_sig }}</span>{% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
                 {% else %}
                 <p class="sidebar-empty">Ingen aktier gemt endnu.<br>Brug + knappen for at tilføje.</p>

@@ -117,23 +117,66 @@ def fetch_and_store(ticker: str, period: str = "1y", interval: str = "1d") -> in
         session.close()
 
 
+def _compute_signals(price: "Price") -> tuple[str | None, str | None]:
+    """Compute (long_signal, short_signal) from a Price row."""
+    close = price.close
+    sma50, sma200 = price.sma_50, price.sma_200
+    if sma50 and sma200:
+        if close > sma50 and sma50 > sma200:
+            long_sig = "KØB"
+        elif close < sma200:
+            long_sig = "SÆLG"
+        else:
+            long_sig = "HOLD"
+    else:
+        long_sig = None
+
+    hist = price.macd_hist
+    if hist is not None:
+        short_sig = "KØB" if hist > 0 else ("SÆLG" if hist < 0 else "HOLD")
+    else:
+        short_sig = None
+
+    return long_sig, short_sig
+
+
 def list_stored_tickers() -> list:
     from sqlalchemy import func
     session = get_session()
     try:
         stocks = session.query(Stock).order_by(Stock.ticker).all()
+        stock_ids = [s.id for s in stocks]
+
+        # Batch: date range per stock
+        date_rows = session.query(
+            Price.stock_id,
+            func.min(Price.date),
+            func.max(Price.date),
+        ).filter(Price.stock_id.in_(stock_ids)).group_by(Price.stock_id).all()
+        date_map = {r[0]: (r[1], r[2]) for r in date_rows}
+
+        # Batch: latest price row per stock (for signals)
+        subq = session.query(
+            Price.stock_id,
+            func.max(Price.date).label("max_date"),
+        ).filter(Price.stock_id.in_(stock_ids)).group_by(Price.stock_id).subquery()
+        latest_prices = session.query(Price).join(
+            subq,
+            (Price.stock_id == subq.c.stock_id) & (Price.date == subq.c.max_date),
+        ).all()
+        price_map = {p.stock_id: p for p in latest_prices}
+
         result = []
         for s in stocks:
-            row = session.query(
-                func.min(Price.date), func.max(Price.date)
-            ).filter_by(stock_id=s.id).one()
-            min_date, max_date = row
+            min_date, max_date = date_map.get(s.id, (None, None))
             if min_date and max_date:
                 years = (max_date - min_date).days / 365.25
                 span = f"{years:.1f}y" if years >= 1 else f"{int(years * 12)}m"
             else:
                 span = None
-            result.append((s.ticker, s.name or s.ticker, span))
+            lp = price_map.get(s.id)
+            long_sig, short_sig = _compute_signals(lp) if lp else (None, None)
+            result.append((s.ticker, s.name or s.ticker, span, long_sig, short_sig))
         return result
     finally:
         session.close()

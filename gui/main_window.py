@@ -111,7 +111,7 @@ class MainWindow(QMainWindow):
     def _refresh_stored_combo(self):
         self.stored_combo.blockSignals(True)
 
-        stored = {t: (n, span) for t, n, span in list_stored_tickers()}
+        stored = {t: (n, span) for t, n, span, *_ in list_stored_tickers()}
 
         all_tickers = dict(DANISH_STOCKS)
         for t, (n, _) in stored.items():
