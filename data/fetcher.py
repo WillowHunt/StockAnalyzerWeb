@@ -66,7 +66,7 @@ def fetch_and_store(ticker: str, period: str = "1y", interval: str = "1d") -> in
     df = add_indicators(df)
 
     info = yf.Ticker(ticker).info
-    name = info.get("longName") or info.get("shortName") or ticker
+    name     = info.get("longName") or info.get("shortName") or ticker
     exchange = info.get("exchange", "")
     currency = info.get("currency", "USD")
 
