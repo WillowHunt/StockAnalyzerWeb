@@ -84,15 +84,15 @@ def run_atr_backtest(ticker: str, atr_mult: float = 2.0, max_days: int = 60) -> 
             is_success = pct > 0
             indicator_key = sig.indicator + "+ATR"
 
-            results.append({"type": "BUY", "indicator": indicator_key, "pct": pct, "success": is_success})
+            results.append({"type": "BUY", "indicator": indicator_key, "pct": float(pct), "success": bool(is_success)})
             details.append({
                 "date": str(sig.date),
                 "signal_type": "BUY",
                 "indicator": indicator_key,
-                "price": entry_price,
+                "price": float(entry_price),
                 "outcome_date": str(exit_date),
-                "outcome_pct": round(pct, 4),
-                "is_success": is_success,
+                "outcome_pct": round(float(pct), 4),
+                "is_success": bool(is_success),
             })
 
         if not results:
@@ -107,8 +107,8 @@ def run_atr_backtest(ticker: str, atr_mult: float = 2.0, max_days: int = 60) -> 
                 "total": total,
                 "success": int(success),
                 "fail": total - int(success),
-                "success_rate": round(success / total * 100, 1),
-                "avg_pct": round(group["pct"].mean(), 2),
+                "success_rate": float(round(success / total * 100, 1)),
+                "avg_pct": float(round(group["pct"].mean(), 2)),
             }
         return summary, details
     finally:
