@@ -92,6 +92,23 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Sego
 .stock-header h2 { font-size: 16px; font-weight: 700; }
 .header-actions { display: flex; align-items: center; gap: 8px; }
 
+.analyst-box { display: flex; flex-direction: column; gap: 3px; min-width: 160px; }
+.analyst-loading { font-size: 11px; color: var(--muted); }
+.analyst-consensus { font-size: 12px; font-weight: 700; letter-spacing: 0.3px; }
+.analyst-bar {
+    display: flex; height: 6px; border-radius: 3px; overflow: hidden;
+    background: var(--border); gap: 1px;
+}
+.analyst-seg { height: 100%; transition: width 0.3s; }
+.analyst-buy  { background: #26a69a; }
+.analyst-hold { background: #ffa726; }
+.analyst-sell { background: #ef5350; }
+.analyst-counts { display: flex; gap: 8px; font-size: 10px; }
+.ac-buy   { color: #26a69a; }
+.ac-hold  { color: #ffa726; }
+.ac-sell  { color: #ef5350; }
+.ac-total { color: var(--muted); margin-left: auto; }
+
 /* Buttons */
 .btn-primary {
     background: var(--accent); color: #fff; border: none;

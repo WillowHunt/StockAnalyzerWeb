@@ -29,7 +29,8 @@ async function loadRegimeData(prices) {
     try {
         const res      = await fetch(`/api/regime?index=${encodeURIComponent(currentRegimeIndex)}&start=${start}&end=${end}`);
         currentRegimeData = res.ok ? await res.json() : [];
-    } catch { currentRegimeData = []; }
+        if (!currentRegimeData.length) showToast(`Ingen regime-data for ${currentRegimeIndex}`, true);
+    } catch { currentRegimeData = []; showToast(`Kunne ikke hente regime-data`, true); }
 }
 
 async function setRegimeIndex(index, btn) {
@@ -602,6 +603,51 @@ function syncIndicatorButtons() {
     if (picker) picker.style.display = visibleIndicators.regime ? '' : 'none';
 }
 
+// ── Analyst recommendations ───────────────────────────────────────────────────
+
+async function loadRecommendations(ticker) {
+    const box = document.getElementById('analyst-box');
+    if (!box) return;
+    box.innerHTML = '<span class="analyst-loading">Henter analyser…</span>';
+    try {
+        const res  = await fetch(`/api/stocks/${ticker}/recommendations`);
+        const data = res.ok ? await res.json() : null;
+        renderRecommendations(box, data);
+    } catch {
+        box.innerHTML = '';
+    }
+}
+
+function renderRecommendations(box, d) {
+    if (!d || d.total === 0) { box.innerHTML = ''; return; }
+
+    const consensusColor = {
+        'Stærkt Køb': '#26a69a', 'Køb': '#66bb6a',
+        'Hold': '#ffa726',
+        'Sælg': '#ef5350', 'Stærkt Sælg': '#b71c1c',
+    };
+    const color = consensusColor[d.consensus] || '#888';
+
+    const buyN  = d.strong_buy + d.buy;
+    const sellN = d.sell + d.strong_sell;
+    const total = d.total;
+    const pct   = v => total ? Math.round(v / total * 100) : 0;
+
+    box.innerHTML = `
+        <div class="analyst-consensus" style="color:${color}">${d.consensus}</div>
+        <div class="analyst-bar">
+            <div class="analyst-seg analyst-buy"  style="width:${pct(buyN)}%"  title="${buyN} Køb"></div>
+            <div class="analyst-seg analyst-hold" style="width:${pct(d.hold)}%" title="${d.hold} Hold"></div>
+            <div class="analyst-seg analyst-sell" style="width:${pct(sellN)}%" title="${sellN} Sælg"></div>
+        </div>
+        <div class="analyst-counts">
+            <span class="ac-buy">${buyN} køb</span>
+            <span class="ac-hold">${d.hold} hold</span>
+            <span class="ac-sell">${sellN} sælg</span>
+            <span class="ac-total">${total} analytikere</span>
+        </div>`;
+}
+
 // ── HTMX afterSwap — start chart after stock view is injected ────────────────
 
 document.body.addEventListener('htmx:afterSwap', function (evt) {
@@ -614,6 +660,7 @@ document.body.addEventListener('htmx:afterSwap', function (evt) {
     renderCompareChips();
     syncIndicatorButtons();
     loadChart(ticker, limit);
+    loadRecommendations(ticker);
     htmx.ajax('GET', `/partials/signals/${ticker}`, { target: '#tab-content', swap: 'innerHTML' });
 });
 

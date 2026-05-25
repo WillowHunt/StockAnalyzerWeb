@@ -1,6 +1,7 @@
 <div class="stock-view">
     <div class="stock-header">
         <h2 id="stock-title">{{ ticker }}</h2>
+        <div id="analyst-box" class="analyst-box"></div>
         <div class="header-actions">
 <button class="btn-primary"
                     hx-post="/api/stocks/{{ ticker }}/fetch"
@@ -60,7 +61,7 @@
                 <button class="ind-btn active" data-indicator="regime" onclick="toggleIndicator('regime')">Bull/Bear</button>
                 <span id="regime-index-picker" class="regime-index-picker">
                     <button class="regime-idx-btn active" onclick="setRegimeIndex('^GSPC', this)">S&amp;P 500</button>
-                    <button class="regime-idx-btn" onclick="setRegimeIndex('^OMXC20', this)">OMXC20</button>
+                    <button class="regime-idx-btn" onclick="setRegimeIndex('^OMXC25', this)">OMXC25</button>
                 </span>
             </div>
         </div>
